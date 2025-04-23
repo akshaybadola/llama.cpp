@@ -85,3 +85,6 @@ set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME llama-llava-clip-quantize
 install(TARGETS ${TARGET} RUNTIME)
 target_link_libraries(${TARGET} PRIVATE common llava ${CMAKE_THREAD_LIBS_INIT})
 target_compile_features(${TARGET} PRIVATE cxx_std_17)
+
+add_library(gemma3 SHARED gemma3_c_api.cpp gemma3.h)
+target_link_libraries(gemma3 PRIVATE llama common mtmd ${CMAKE_THREAD_LIBS_INIT})

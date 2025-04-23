@@ -1,0 +1,167 @@
+#include "gemma3.h"
+#include "gemma3_c.h"
+
+extern "C" {
+
+    static gemma3_context* static_ctx = nullptr;
+    static common_sampler* static_sampler = nullptr;
+    static common_params* static_params = nullptr;
+
+    gemma3_context_t gemma3_static_initialize(const char * model_path, const char * mmproj,
+                                              const char * overrides_str) {
+        static_params = new common_params(init_params_with_overrides(overrides_str));
+        static_params -> model.path = model_path;
+        static_params -> mmproj.path = mmproj;
+        static_ctx = new gemma3_context(*static_params);
+        static_sampler = init_default_sampler(static_ctx->model, *static_params);
+        return reinterpret_cast<gemma3_context_t>(static_ctx);
+    }
+
+    int gemma3_static_eval_message_text_only(const char * msg_str, bool add_bos) {
+        common_chat_msg msg;
+        msg.role = "user";
+        msg.content = msg_str;
+        msg.reasoning_content = "";
+        return eval_message_text_only(*static_ctx, msg, add_bos);
+    }
+
+    int gemma3_static_eval_message_with_images(const char * msg_str,
+                                               const unsigned char ** images_data,
+                                               const int * images_sizes,
+                                               const int num_images,
+                                               const bool add_bos) {
+        common_chat_msg msg;
+        msg.role = "user";
+        msg.content = msg_str;
+        msg.reasoning_content = "";
+
+        std::vector<ImageData> images(num_images);
+        for (int i = 0; i < num_images; ++i) {
+            images[i].data = images_data[i];
+            images[i].size = images_sizes[i];
+        }
+
+        return eval_message_with_images(*static_ctx, msg, images, add_bos);
+    }
+
+    int gemma3_static_generate_response(int n_predict) {
+        g_is_generating = true;
+        int retval = generate_response(*static_ctx, static_sampler, n_predict);
+        return retval;
+    }
+
+    int gemma3_static_stream_response(token_callback_t py_callback, int n_predict) {
+        g_is_generating = true;
+        return stream_response(*static_ctx, static_sampler, n_predict, py_callback);
+    }
+
+    int gemma3_static_reset() {
+        return reset_context(static_ctx);
+    }
+
+    void gemma3_static_interrupt() {
+        interrupt_generation();
+    }
+
+    bool gemma3_is_genearting() {
+        return g_is_generating;
+    }
+
+    common_params_t gemma3_create_params() {
+        auto params = new common_params(init_default_params());
+        return reinterpret_cast<common_params_t>(params);
+    }
+
+    common_params_t gemma3_create_params_with_overrides(const char * json_str) {
+        auto * params = new common_params(init_params_with_overrides(json_str));
+        return reinterpret_cast<common_params_t>(params);
+    }
+
+    common_sampler_t gemma3_create_sampler(gemma3_context_t ctx, common_params_t params) {
+        auto* context = reinterpret_cast<gemma3_context*>(ctx);
+        auto* cpp_params = reinterpret_cast<common_params*>(params);
+        auto* sampler = init_default_sampler(context->model, *cpp_params);
+        return reinterpret_cast<common_sampler_t>(sampler);
+    }
+
+    // common_sampler_t gemma3_create_sampler(gemma3_context_t ctx, common_params_t params){
+    //   auto sampler = init_default_sampler(
+    //                                       *reinterpret_cast<gemma3_context>(ctx),
+    //                                       *reinterpret_cast<common_params>(params));
+    //   return reinterpret_cast<common_sampler_t>(sampler);
+    // }
+
+    gemma3_context_t gemma3_create_context(const char * model_path, const char * mmproj,
+                                           const char * overrides_str) {
+        auto params = new common_params(init_params_with_overrides(overrides_str));
+        params -> model.path = model_path;
+        params -> mmproj.path = mmproj;
+        auto ctx = new gemma3_context(*params);
+        return reinterpret_cast<gemma3_context_t>(ctx);
+    }
+
+    int gemma3_eval_message_with_images(gemma3_context_t ctx_ptr, const char * msg_str,
+                                        const unsigned char ** images_data,
+                                        const int * images_sizes,
+                                        const int num_images) {
+        auto ctx = reinterpret_cast<gemma3_context*>(ctx_ptr);
+        common_chat_msg msg;
+        msg.role = "user";
+        msg.content = msg_str;
+        msg.reasoning_content = "";
+
+        std::vector<ImageData> images(num_images);
+        for (int i = 0; i < num_images; ++i) {
+            images[i].data = images_data[i];
+            images[i].size = images_sizes[i];
+        }
+
+        return eval_message_with_images(*ctx, msg, images, true);
+    }
+
+    // gemma3_context_t gemma3_create(const char * model_path) {
+    //   common_params params;
+    //   params.model = model_path;
+    //   auto ctx = new gemma3_context(params);
+    //   return reinterpret_cast<gemma3_context_t>(ctx);
+    // }
+
+    void gemma3_destroy(gemma3_context_t ctx_ptr) {
+        auto ctx = reinterpret_cast<gemma3_context*>(ctx_ptr);
+        delete ctx;
+    }
+
+    // int gemma3_eval_message(gemma3_context_t ctx_ptr, const char * msg_str) {
+    //   auto ctx = reinterpret_cast<gemma3_context*>(ctx_ptr);
+    //   common_chat_msg msg = {
+    //     .role = "user",
+    //     .content = msg_str,
+    //   };
+    //   std::vector<std::string> no_images;
+    //   return eval_message(*ctx, msg, no_images, false);
+    // }
+
+    int gemma3_generate_response(gemma3_context_t ctx_ptr, common_sampler_t smpl, int n_predict) {
+        g_is_generating = true;
+        auto ctx = reinterpret_cast<gemma3_context*>(ctx_ptr);
+        auto sampler = reinterpret_cast<common_sampler*>(smpl);
+        return generate_response(*ctx, sampler, n_predict);
+    }
+
+    int gemma3_collect_response(gemma3_context_t ctx_ptr, common_sampler_t smpl, int n_predict,
+                                char* tokens_buffer, int tokens_buffer_size) {
+        g_is_generating = true;
+        auto ctx = reinterpret_cast<gemma3_context*>(ctx_ptr);
+        auto sampler = reinterpret_cast<common_sampler*>(smpl);
+        return collect_response(*ctx, sampler, n_predict, &tokens_buffer, &tokens_buffer_size);
+    }
+
+    int gemma3_stream_response(gemma3_context_t ctx_ptr, common_sampler_t smpl, int n_predict,
+                               token_callback_t py_callback) {
+        g_is_generating = true;
+        auto ctx = reinterpret_cast<gemma3_context*>(ctx_ptr);
+        auto sampler = reinterpret_cast<common_sampler*>(smpl);
+        return stream_response(*ctx, sampler, n_predict, py_callback);
+    }
+
+}
