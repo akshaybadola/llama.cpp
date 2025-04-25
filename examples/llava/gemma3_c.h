@@ -22,7 +22,7 @@ extern "C" {
   int gemma3_static_reset();
   int gemma3_static_stream_response(token_callback_t py_callback, int n_predict);
   int gemma3_static_eval_message_text_only(const char * msg_str, bool add_bos);
-  bool gemma3_is_genearting();
+  bool gemma3_is_generating();
 
   // Create context
   gemma3_context_t gemma3_create_context(const char * model_path, const char * mmproj,

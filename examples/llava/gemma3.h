@@ -262,6 +262,9 @@ static common_params init_params_with_overrides(const char* json_str) {
                 if (key == "n_ctx" && val.is_number_integer()) {
                     params.n_ctx = val.get<int32_t>();
                     printf("Changed n_ctx\n");
+                } else if (key == "n_batch" && val.is_number_integer()) {
+                    params.n_batch = val.get<int32_t>();
+                    printf("Changed n_batch\n");
                 } else if (key == "n_chunks" && val.is_number_integer()) {
                     params.n_chunks = val.get<int32_t>();
                     printf("Changed n_chunks\n");
@@ -307,6 +310,7 @@ static int stream_response(gemma3_context & ctx, common_sampler * smpl, int n_pr
                            token_callback_t py_callback) {
     std::cout << "\nStreaming response\nN Past: " << ctx.n_past
               << ", Generating\n";
+    fflush(stdout);
     for (int i = 0; i < n_predict; i++) {
         if (i > n_predict) {
             printf("Reached n_predict\n");
@@ -314,6 +318,7 @@ static int stream_response(gemma3_context & ctx, common_sampler * smpl, int n_pr
         }
         if (!g_is_generating) {
             printf("Generation flag is unset\n");
+            LOG_INF("Generated %d tokens\n", i);
             break;
         }
 
@@ -325,6 +330,7 @@ static int stream_response(gemma3_context & ctx, common_sampler * smpl, int n_pr
             // printf("\nGOT EOS\n");
             // fflush(stdout);
 
+            LOG_INF("Generated %d tokens\n", i);
             g_is_generating = false;
             py_callback("[EOS]");
             break; // end of generation
@@ -343,6 +349,7 @@ static int stream_response(gemma3_context & ctx, common_sampler * smpl, int n_pr
         common_batch_add(ctx.batch, token_id, ctx.n_past++, {0}, true);
         if (llama_decode(ctx.lctx, ctx.batch)) {
             LOG_ERR("failed to decode token\n");
+            LOG_INF("Generated %d tokens\n", i);
             g_is_generating = false;
             py_callback("[EOS]");
             return 1;

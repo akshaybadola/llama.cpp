@@ -63,7 +63,7 @@ extern "C" {
         interrupt_generation();
     }
 
-    bool gemma3_is_genearting() {
+    bool gemma3_is_generating() {
         return g_is_generating;
     }
 
