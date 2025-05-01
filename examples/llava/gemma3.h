@@ -285,6 +285,9 @@ static common_params init_params_with_overrides(const char* json_str) {
                     for (const auto& element : val) {
                         params.tensor_split[num_elements++] = element.get<float>();
                     }
+                } else if (key == "log_file" && val.is_string()) {
+                    common_log_set_file(common_log_main(), val.get<std::string>().c_str());
+                    printf("Set log_file to %s\n", val.get<std::string>().c_str());
                 } else {
                     std::cerr << "Warning: Unknown, unsupported or invalid parameter: " << key << std::endl;
                 }
@@ -584,4 +587,3 @@ static int reset_context(gemma3_context * ctx){
 static void interrupt_generation(){
     g_is_generating = false;
 }
-
