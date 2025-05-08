@@ -442,6 +442,7 @@ static int collect_response(gemma3_context & ctx, common_sampler * smpl, int n_p
         strcpy(current_pos, token.c_str());
         current_pos += token.length() + 1;
       }
+      LOG_INF("Generated %zu tokens\n", generated_tokens.size());
       return generated_tokens.size();
     }
     return 0;
@@ -473,7 +474,7 @@ static int eval_message_with_images(gemma3_context & ctx,
     text.text          = formatted_chat.prompt;
     text.add_special   = add_bos;
     text.parse_special = true;
-    LOG_INF("Eval with images\nformatted_chat.prompt: %s\n", formatted_chat.prompt.c_str());
+    LOG_INF("Formatted_chat.prompt: %s\n\n", formatted_chat.prompt.c_str());
     mtmd_input_chunks chunks;
     int32_t           res = mtmd_tokenize(ctx.ctx_vision.get(), chunks, text, bitmaps);
     if (res != 0) {
@@ -485,6 +486,7 @@ static int eval_message_with_images(gemma3_context & ctx,
         return 1;
     }
     ctx.n_past += mtmd_helper_get_n_tokens(chunks);
+    LOG_INF("Got %d tokens\n\n", ctx.n_past);
     return 0;
 }
 

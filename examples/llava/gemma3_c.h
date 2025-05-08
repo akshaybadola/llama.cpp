@@ -22,6 +22,7 @@ extern "C" {
   int gemma3_static_reset();
   int gemma3_static_stream_response(token_callback_t py_callback, int n_predict);
   int gemma3_static_eval_message_text_only(const char * msg_str, bool add_bos);
+  int gemma3_static_collect_response(int n_predict, char* tokens_buffer, int tokens_buffer_size);
   bool gemma3_is_generating();
 
   // Create context

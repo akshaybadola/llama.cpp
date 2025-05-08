@@ -55,6 +55,13 @@ extern "C" {
         return stream_response(*static_ctx, static_sampler, n_predict, py_callback);
     }
 
+    int gemma3_static_collect_response(int n_predict, char* tokens_buffer, int tokens_buffer_size) {
+        g_is_generating = true;
+        return collect_response(*static_ctx, static_sampler, n_predict,
+                                &tokens_buffer, &tokens_buffer_size);
+    }
+
+
     int gemma3_static_reset() {
         return reset_context(static_ctx);
     }
