@@ -11,8 +11,8 @@ extern "C" {
   // Let there be static
   gemma3_context_t gemma3_static_initialize(const char * model_path, const char * mmproj,
                                             const char * overrides_str);
+  void re_init_sampler(const char * sampler_overrides);
   int gemma3_static_eval_message(const char * msg_str, bool add_bos);
-  int gemma3_static_generate_response(int n_predict);
   int gemma3_static_eval_message_with_images(const char * msg_str,
                                              const unsigned char ** images_data,
                                              const int * images_sizes,
@@ -20,9 +20,13 @@ extern "C" {
                                              bool add_bos);
   void gemma3_static_interrupt();
   int gemma3_static_reset();
-  int gemma3_static_stream_response(token_callback_t py_callback, int n_predict);
+  void gemma3_print_params();
+  int gemma3_static_stream_response(token_callback_t py_callback, int n_predict,
+                                    const char ** stop_strings, int n_strings);
+  int gemma3_static_generate_response(int n_predict, const char ** stop_strings,int n_strings);
   int gemma3_static_eval_message_text_only(const char * msg_str, bool add_bos);
-  int gemma3_static_collect_response(int n_predict, char* tokens_buffer, int tokens_buffer_size);
+  int gemma3_static_collect_response(int n_predict, char* tokens_buffer, int tokens_buffer_size,
+                                     const char ** stop_strings,int n_strings);
   bool gemma3_is_generating();
 
   // Create context
