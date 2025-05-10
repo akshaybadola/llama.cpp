@@ -7,6 +7,10 @@ extern "C" {
   typedef void* common_sampler_t;
   typedef void* common_params_t;
   typedef void (*token_callback_t)(const char* token);
+  struct gemma3_tokens {
+      int prompt_n;
+      int predicted_n;
+  };
 
   // Let there be static
   gemma3_context_t gemma3_static_initialize(const char * model_path, const char * mmproj,

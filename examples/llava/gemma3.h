@@ -233,6 +233,8 @@ struct gemma3_context {
     const llama_vocab * vocab;
     llama_batch         batch;
     int                 n_batch;
+    int32_t             prompt_n;
+    int32_t             predicted_n;
 
     // note: we know that gemma3 template is "linear", meaning each turn is completely separated to another
     // so here we don't need to keep track of chat history
@@ -250,6 +252,8 @@ struct gemma3_context {
         n_batch = params.n_batch;
         tmpls = common_chat_templates_init(model, params.chat_template);
         init_vision_context(params);
+        prompt_n = 0;
+        predicted_n = 0;
     }
 
     void init_vision_context(common_params & params) {
@@ -543,28 +547,6 @@ static int stream_response(gemma3_context & ctx, common_sampler * sampler, int n
         }
 
 
-        std::string token_str = common_token_to_piece(ctx.lctx, token_id);
-
-        std::string reversed = token_str;
-        std::reverse(reversed.begin(), reversed.end());
-        stop.push_front(reversed);
-
-        if (match_reversed(stop, stop_strings)){
-            py_callback(token_str.c_str());
-            LOG_INF("Generated %d tokens\n", i);
-            g_is_generating = false;
-            py_callback("[EOS]");
-            break; // end of generation
-        }
-
-        // printf("GOT TOKEN %s\n", token_str.c_str());
-        // fflush(stdout);
-
-        // Call the Python callback function with the generated token
-        if (py_callback != nullptr) {
-            py_callback(token_str.c_str());
-        }
-
         common_batch_clear(ctx.batch);
         common_batch_add(ctx.batch, token_id, ctx.n_past++, {0}, true);
         if (llama_decode(ctx.lctx, ctx.batch)) {
@@ -573,6 +555,25 @@ static int stream_response(gemma3_context & ctx, common_sampler * sampler, int n
             g_is_generating = false;
             py_callback("[EOS]");
             return 1;
+        }
+        ctx.predicted_n++;
+
+        std::string token_str = common_token_to_piece(ctx.lctx, token_id);
+        std::string reversed = token_str;
+        std::reverse(reversed.begin(), reversed.end());
+        stop.push_front(reversed);
+
+        // Call the Python callback function with the generated token
+        if (py_callback != nullptr) {
+            py_callback(token_str.c_str());
+        }
+
+        if (match_reversed(stop, stop_strings)){
+            py_callback(token_str.c_str());
+            LOG_INF("Generated %d tokens\n", i);
+            g_is_generating = false;
+            py_callback("[EOS]");
+            break; // end of generation
         }
     }
     g_is_generating = false;
@@ -613,6 +614,17 @@ static int generate_response(gemma3_context & ctx, common_sampler * sampler, int
             break; // end of generation
         }
 
+        // eval the token
+        common_batch_clear(ctx.batch);
+        common_batch_add(ctx.batch, token_id, ctx.n_past++, {0}, true);
+        if (llama_decode(ctx.lctx, ctx.batch)) {
+            LOG_ERR("failed to decode token\n");
+            LOG_INF("Generated %d tokens\n", i);
+            g_is_generating = false;
+            return 1;
+        }
+        ctx.predicted_n++;
+
         std::string token_str = common_token_to_piece(ctx.lctx, token_id);
         std::string reversed = token_str;
         std::reverse(reversed.begin(), reversed.end());
@@ -628,14 +640,6 @@ static int generate_response(gemma3_context & ctx, common_sampler * sampler, int
 
         printf("%s", token_str.c_str());
         fflush(stdout);
-
-        // eval the token
-        common_batch_clear(ctx.batch);
-        common_batch_add(ctx.batch, token_id, ctx.n_past++, {0}, true);
-        if (llama_decode(ctx.lctx, ctx.batch)) {
-            LOG_ERR("failed to decode token\n");
-            return 1;
-        }
     }
     return 0;
 }
@@ -644,6 +648,7 @@ static int generate_response(gemma3_context & ctx, common_sampler * sampler, int
 static int collect_response(gemma3_context & ctx, common_sampler * sampler, int n_predict,
                             char** tokens_buffer, const int* tokens_buffer_size,
                             const char ** stop_tokens_ptr, int num_strings) {
+    ctx.predicted_n = 0;
     std::vector<std::string> stop_strings;
     for (int i = 0; i < num_strings; ++i) {
         std::string text = stop_tokens_ptr[i];
@@ -672,31 +677,29 @@ static int collect_response(gemma3_context & ctx, common_sampler * sampler, int 
             break; // end of generation
         }
 
-        std::string sampled_token = common_token_to_piece(ctx.lctx, token_id);
-
-        std::string reversed = sampled_token;
-        std::reverse(reversed.begin(), reversed.end());
-        stop.push_front(reversed);
-
-        if (match_reversed(stop, stop_strings)){
-            generated_tokens.push_back(sampled_token);
-            LOG_INF("Generated %d tokens\n", i);
-            g_is_generating = false;
-            break; // end of generation
-        }
-
-        printf("%s", sampled_token.c_str());
-        fflush(stdout);
-
-        generated_tokens.push_back(sampled_token);
-
         // eval the token
         common_batch_clear(ctx.batch);
         common_batch_add(ctx.batch, token_id, ctx.n_past++, {0}, true);
         if (llama_decode(ctx.lctx, ctx.batch)) {
             LOG_ERR("failed to decode token\n");
+            LOG_INF("Generated %d tokens\n", i);
+            g_is_generating = false;
             return 1;
         }
+        ctx.predicted_n++;
+
+        std::string token_str = common_token_to_piece(ctx.lctx, token_id);
+        std::string reversed = token_str;
+        std::reverse(reversed.begin(), reversed.end());
+        stop.push_front(reversed);
+
+        if (match_reversed(stop, stop_strings)){
+            generated_tokens.push_back(token_str);
+            LOG_INF("Generated %d tokens\n", i);
+            g_is_generating = false;
+            break; // end of generation
+        }
+        generated_tokens.push_back(token_str);
     }
     if (!generated_tokens.empty()) {
       size_t total_size = 0;
@@ -759,6 +762,7 @@ static int eval_message_with_images(gemma3_context & ctx,
         return 1;
     }
     ctx.n_past += mtmd_helper_get_n_tokens(chunks);
+    ctx.prompt_n = ctx.n_past;
     LOG_INF("Got %d tokens\n\n", ctx.n_past);
     return 0;
 }
@@ -802,6 +806,7 @@ static int eval_message_text_only(gemma3_context & ctx,
     // }
 
     ctx.n_past += n_tokens;
+    ctx.prompt_n = ctx.n_past;
 
     return 0;
 }

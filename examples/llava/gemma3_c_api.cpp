@@ -28,6 +28,13 @@ extern "C" {
                                       sampler_overrides);
     }
 
+    gemma3_tokens gemma3_tokens_info() {
+        return gemma3_tokens {
+            static_ctx -> prompt_n,
+            static_ctx -> predicted_n
+        };
+    }
+
     int gemma3_static_eval_message_text_only(const char * msg_str, bool add_bos) {
         common_chat_msg msg;
         msg.role = "user";
