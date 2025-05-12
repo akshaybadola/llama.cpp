@@ -17,7 +17,7 @@ extern "C" {
                                             const char * overrides_str);
   void re_init_sampler(const char * sampler_overrides);
   int gemma3_static_eval_message(const char * msg_str, bool add_bos);
-  int gemma3_static_eval_message_with_images(const char * msg_str,
+  int gemma3_static_eval_message_with_images(const char *,
                                              const unsigned char ** images_data,
                                              const int * images_sizes,
                                              int num_images,
@@ -51,12 +51,6 @@ extern "C" {
 
   // Evaluate a message (images not supported in C API)
   int gemma3_eval_message(gemma3_context_t ctx_ptr, const char * msg_str);
-
-  // Evaluate a message with images
-  int gemma3_eval_message_with_images(gemma3_context_t ctx_ptr, const char * msg_str,
-                                      const unsigned char ** images_data,
-                                      const int * images_sizes,
-                                      int num_images);
 
   // Generate a response
   int gemma3_generate_response(gemma3_context_t ctx, common_sampler_t smpl, int n_predict);

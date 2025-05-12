@@ -43,23 +43,49 @@ extern "C" {
         return eval_message_text_only(*static_ctx, msg, add_bos);
     }
 
-    int gemma3_static_eval_message_with_images(const char * msg_str,
+    int gemma3_static_eval_message_with_images(const char * msg_or_json_str,
                                                const unsigned char ** images_data,
                                                const int * images_sizes,
                                                const int num_images,
                                                const bool add_bos) {
-        common_chat_msg msg;
-        msg.role = "user";
-        msg.content = msg_str;
-        msg.reasoning_content = "";
+        std::vector<common_chat_msg> msgs;
+
+        using json = nlohmann::ordered_json;
+
+        try {
+            json parsed = nlohmann::json::parse(msg_or_json_str);
+            if (parsed.is_array()){
+                for (const auto &item : parsed){
+                    common_chat_msg msg;
+                    for (const auto & [key, val] :item.items()) {
+                        if (key == "role"){
+                            msg.role = val.get<std::string>();
+                        }
+                        if (key == "content"){
+                            msg.content = val.get<std::string>();
+                        }
+                    }
+                    msgs.push_back(msg);
+                }
+            } else{
+                std::cerr << "JSON parsing error: " << "\nShoud be array of messages\n";
+                return 1;
+            }
+
+        }  catch (const nlohmann::json::parse_error& e) {
+            std::cerr << "Error parsing JSON parameters: " << e.what() << "\n";
+            common_chat_msg msg;
+            msg.role = "user";
+            msg.content = msg_or_json_str;
+            msgs.push_back(msg);
+        }
 
         std::vector<ImageData> images(num_images);
         for (int i = 0; i < num_images; ++i) {
             images[i].data = images_data[i];
             images[i].size = images_sizes[i];
         }
-
-        return eval_message_with_images(*static_ctx, msg, images, add_bos);
+        return eval_message_with_images(*static_ctx, msgs, images, add_bos);
     }
 
     int gemma3_static_generate_response(int n_predict, const char ** stop_strings,
@@ -124,25 +150,6 @@ extern "C" {
         params -> mmproj.path = mmproj;
         auto ctx = new gemma3_context(*params);
         return reinterpret_cast<gemma3_context_t>(ctx);
-    }
-
-    int gemma3_eval_message_with_images(gemma3_context_t ctx_ptr, const char * msg_str,
-                                        const unsigned char ** images_data,
-                                        const int * images_sizes,
-                                        const int num_images) {
-        auto ctx = reinterpret_cast<gemma3_context*>(ctx_ptr);
-        common_chat_msg msg;
-        msg.role = "user";
-        msg.content = msg_str;
-        msg.reasoning_content = "";
-
-        std::vector<ImageData> images(num_images);
-        for (int i = 0; i < num_images; ++i) {
-            images[i].data = images_data[i];
-            images[i].size = images_sizes[i];
-        }
-
-        return eval_message_with_images(*ctx, msg, images, true);
     }
 
     void gemma3_destroy(gemma3_context_t ctx_ptr) {

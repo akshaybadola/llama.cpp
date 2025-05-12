@@ -726,13 +726,13 @@ static int collect_response(gemma3_context & ctx, common_sampler * sampler, int 
 
 
 static int eval_message_with_images(gemma3_context & ctx,
-                                    common_chat_msg & msg,
+                                    std::vector<common_chat_msg> & msgs,
                                     std::vector<ImageData> & images,
                                     bool add_bos = false) {
     std::vector<mtmd_bitmap> bitmaps;
 
     common_chat_templates_inputs tmpl_inputs;
-    tmpl_inputs.messages = {msg};
+    tmpl_inputs.messages              = msgs;
     tmpl_inputs.add_generation_prompt = true;
     tmpl_inputs.use_jinja = false; // jinja is buggy here
     auto formatted_chat = common_chat_templates_apply(ctx.tmpls.get(), tmpl_inputs);
