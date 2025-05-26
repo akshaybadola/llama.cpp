@@ -1,14 +1,11 @@
 #include "log.h"
 #include "chat.h"
-/* #include "clip.h" */
-/* #include "clip-impl.h" */
 #include "mtmd.h"
 #include "sampling.h"
 #include "arg.h"
 #include "json.hpp"
 #include "llama.h"
 
-#include <array>
 #include <deque>
 #include <iostream>
 #include <cstring>
